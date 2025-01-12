@@ -44,7 +44,7 @@ on:
 jobs:
   build:
     name: Build TWRP by ${{ github.actor }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.event.repository.owner.id == github.event.sender.id
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,7 +126,7 @@ jobs:
     - name: Repo Sync
       run: |
         cd android-recovery
-        repo sync -c -j$(nproc --all) --force-sync
+        repo sync --depth=1 -c -j$(nproc --all) --force-sync
 
     - name: Repopick Gerrit patches
       run: |
