@@ -121,12 +121,12 @@ jobs:
         cd android-recovery
         git config --global user.name "${{ github.actor }}"
         git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-        repo init --depth=1 -u ${{ steps.manifest.outputs.value }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
+        repo init -u ${{ steps.manifest.outputs.value }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
         
     - name: Repo Sync
       run: |
         cd android-recovery
-        repo sync --depth=1 -c -j$(nproc --all) --force-sync
+        repo sync -c -j$(nproc --all) --force-sync
 
     - name: Repopick Gerrit patches
       run: |
