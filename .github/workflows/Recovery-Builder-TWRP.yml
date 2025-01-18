@@ -185,7 +185,7 @@ jobs:
         export ALLOW_MISSING_DEPENDENCIES=true
         lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
         echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
-        cd out/target/product/gta9p
+        cd out/target/product/${{ github.event.inputs.DEVICE_NAME }}
         echo "Creating tar archive for ODIN flashing..."
         tar -cvf recovery.tar recovery.img
         echo "Done, download it and flash."
