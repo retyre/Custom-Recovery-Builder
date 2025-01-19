@@ -20,7 +20,7 @@ on:
       DEVICE_TREE:
         description: 'Custom Recovery Tree URL'
         required: true
-        default: 'https://github.com/enter_username/repo_name'
+        default: 'https://github.com/retyre/custom_recovery_tree_samsung_gta9pwifi.git'
       DEVICE_TREE_BRANCH:
         description: 'Device Tree Branch (optional)'
         required: false
@@ -28,7 +28,7 @@ on:
       BUILD_TARGET:
         description: 'Build Target (use "pbrp" for Android 11+)'
         required: true
-        default: 'recovery'
+        default: 'pbrp'
         type: choice
         options:
         - pbrp
