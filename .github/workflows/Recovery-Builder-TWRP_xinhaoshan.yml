@@ -136,7 +136,7 @@ jobs:
       continue-on-error: true
 
     - name: Include Recovery Installer
-      if: inputs.RECOVERY_INSTALLER == true && inputs.MANIFEST_BRANCH != '12.1' && inputs.BUILD_TARGET != 'vendor_boot'
+      if: inputs.RECOVERY_INSTALLER == true && inputs.MANIFEST_BRANCH != '9.0' && inputs.BUILD_TARGET != 'vendor_boot'
       run: |
         case ${{ inputs.MANIFEST_BRANCH }} in
           12.1)
