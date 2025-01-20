@@ -111,7 +111,7 @@ jobs:
       uses: haya14busa/action-cond@v1
       id: manifest
       with:
-        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' || github.event.inputs.MANIFEST_BRANCH == 'twrp-14' }}
+        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-9.0' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' }}
         if_true: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git
         if_false: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git
         
