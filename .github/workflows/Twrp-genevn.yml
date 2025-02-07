@@ -1,4 +1,4 @@
-name: Recovery Builder - TWRP-New
+name: Recovery Builder - TWRP-genevn
 
 on:
   workflow_dispatch:
