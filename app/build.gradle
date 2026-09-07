@@ -1,15 +1,10 @@
-plugins {
-    id 'com.android.application'
-}
-
 android {
-    namespace 'com.example.trona'
-    compileSdk 33
+    compileSdk 33 // Keep compile SDK high for building
 
     defaultConfig {
         applicationId "com.example.trona"
-        minSdk 26
-        targetSdk 33
+        minSdk 24
+        targetSdk 28  // Crucial: Lowers restrictions to allow executing local binaries
         versionCode 1
         versionName "1.0"
     }
