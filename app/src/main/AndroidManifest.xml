@@ -3,7 +3,7 @@
     <application
         android:allowBackup="true"
         android:label="Trona Exploit"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
             android:exported="true">
