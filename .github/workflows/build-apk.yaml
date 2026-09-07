@@ -22,12 +22,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Make Gradle Wrapper Executable
-        run: chmod +x ./gradlew
+      - name: Install Gradle
+        run: sudo apt-get update && sudo apt-get install -y gradle
         shell: bash
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
         shell: bash
 
       - name: Upload APK Artifact
