@@ -1,11 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
 android {
-    compileSdk 33 // Keep compile SDK high for building
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.example.trona"
         minSdk 24
-        targetSdk 28  // Crucial: Lowers restrictions to allow executing local binaries
+        targetSdk 28
         versionCode 1
         versionName "1.0"
     }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    // No external dependencies required
 }
