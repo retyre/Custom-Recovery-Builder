@@ -10,11 +10,11 @@ on:
       DEVICE_TREE_URL:
         description: 'Device tree repo URL'
         required: true
-        default: 'https://github.com/YOUR_GH_USER/android_device_motorola_aito'
+        default: 'https://github.com/retyre/aito'
       DEVICE_TREE_BRANCH:
         description: 'Device tree branch'
         required: true
-        default: 'fox_12.1'
+        default: 'main'
       DEVICE_PATH:
         description: 'Device path'
         required: true
@@ -59,6 +59,9 @@ jobs:
       - name: Clone device tree
         run: |
           cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          echo "URL=${{ github.event.inputs.DEVICE_TREE_URL }}"
+          echo "BRANCH=${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
+          git ls-remote ${{ github.event.inputs.DEVICE_TREE_URL }} ${{ github.event.inputs.DEVICE_TREE_BRANCH }}
           git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ${{ github.event.inputs.DEVICE_PATH }}
 
       - name: Verify tree
