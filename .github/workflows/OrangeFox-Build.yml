@@ -10,11 +10,11 @@ on:
       DEVICE_TREE_URL:
         description: 'Device tree repo URL'
         required: true
-        default: 'https://github.com/retyre/aito'
+        default: 'https://github.com/YOUR_GH_USER/android_device_motorola_aito'
       DEVICE_TREE_BRANCH:
         description: 'Device tree branch'
         required: true
-        default: 'main'
+        default: 'fox_12.1'
       DEVICE_PATH:
         description: 'Device path'
         required: true
@@ -61,14 +61,27 @@ jobs:
           cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
           git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ${{ github.event.inputs.DEVICE_PATH }}
 
+      - name: Verify tree
+        run: |
+          cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          ls device/motorola/aito/
+          cat device/motorola/aito/AndroidProducts.mk
+
       - name: Build
         run: |
           cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          set +e
+          set -x
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_BUILD_DEVICE=${{ github.event.inputs.DEVICE_NAME }}
           export LC_ALL=C
-          source build/envsetup.sh
-          lunch fox_${{ github.event.inputs.DEVICE_NAME }}-eng
+          source build/envsetup.sh > /tmp/envsetup.log 2>&1
+          echo "ENVSETUP_EXIT=$?"
+          cat /tmp/envsetup.log
+          lunch fox_${{ github.event.inputs.DEVICE_NAME }}-eng > /tmp/lunch.log 2>&1
+          echo "LUNCH_EXIT=$?"
+          cat /tmp/lunch.log
+          tail -n 50 /tmp/lunch.log
           mka adbd ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
 
       - name: Upload
