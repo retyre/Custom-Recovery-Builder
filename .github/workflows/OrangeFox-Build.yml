@@ -83,8 +83,10 @@ jobs:
           cat /tmp/envsetup.log
           lunch fox_${{ github.event.inputs.DEVICE_NAME }}-eng > /tmp/lunch.log 2>&1
           echo "LUNCH_EXIT=$?"
-          cat /tmp/lunch.log
-          tail -n 50 /tmp/lunch.log
+          grep -E "error:|Don't have a product spec|TARGET_DEVICE" /tmp/lunch.log | head -n 20
+          tail -n 5 /tmp/lunch.log
+          if [ "$LUNCH_EXIT" -ne 0 ]; then echo "LUNCH FAILED, skipping build"; exit 1; fi
+          if grep -q "does not exist" /tmp/lunch.log; then echo "LUNCH HAD ERRORS, skipping build"; exit 1; fi
           mka adbd ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
 
       - name: Upload
