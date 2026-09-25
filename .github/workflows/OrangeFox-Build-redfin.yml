@@ -1,0 +1,100 @@
+name: OrangeFox - Build redfin
+
+on:
+  workflow_dispatch:
+    inputs:
+      MANIFEST_BRANCH:
+        description: 'OrangeFox manifest branch (12.1 for A14 boot-as-recovery)'
+        required: true
+        default: '12.1'
+      DEVICE_TREE_URL:
+        description: 'Device tree repo URL'
+        required: true
+        default: 'https://github.com/retyre/redfin'
+      DEVICE_TREE_BRANCH:
+        description: 'Device tree branch'
+        required: true
+        default: 'main'
+      DEVICE_PATH:
+        description: 'Device path'
+        required: true
+        default: 'device/google/redfin'
+      DEVICE_NAME:
+        description: 'Device codename'
+        required: true
+        default: 'redfin'
+      BUILD_TARGET:
+        description: 'Build target (boot for redfin recovery-as-boot)'
+        required: true
+        default: 'boot'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3 python3-pip ccache
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Install repo tool
+        run: |
+          mkdir -p ~/.bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          echo "$HOME/.bin" >> $GITHUB_PATH
+
+      - name: Sync OrangeFox
+        run: |
+          mkdir -p ~/fox_sync && cd ~/fox_sync
+          git clone https://gitlab.com/OrangeFox/sync.git
+          cd sync
+          ./orangefox_sync.sh --branch ${{ github.event.inputs.MANIFEST_BRANCH }} --path ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+
+      - name: Clone device tree
+        run: |
+          cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          echo "URL=${{ github.event.inputs.DEVICE_TREE_URL }}"
+          echo "BRANCH=${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
+          git ls-remote ${{ github.event.inputs.DEVICE_TREE_URL }} ${{ github.event.inputs.DEVICE_TREE_BRANCH }}
+          git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ${{ github.event.inputs.DEVICE_PATH }}
+
+      - name: Verify tree
+        run: |
+          cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          ls ${{ github.event.inputs.DEVICE_PATH }}/
+          cat ${{ github.event.inputs.DEVICE_PATH }}/AndroidProducts.mk
+          ls vendor/fox/config/common.mk && echo FOX_VENDOR_OK || echo FOX_VENDOR_MISSING
+
+      - name: Build
+        run: |
+          cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
+          set +e
+          set -x
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_BUILD_DEVICE=${{ github.event.inputs.DEVICE_NAME }}
+          export LC_ALL=C
+          source build/envsetup.sh > /tmp/envsetup.log 2>&1
+          echo "ENVSETUP_EXIT=$?"
+          cat /tmp/envsetup.log
+          lunch fox_${{ github.event.inputs.DEVICE_NAME }}-eng > /tmp/lunch.log 2>&1
+          echo "LUNCH_EXIT=$?"
+          grep -E "error:|Don't have a product spec|TARGET_DEVICE" /tmp/lunch.log | head -n 20
+          tail -n 5 /tmp/lunch.log
+          if [ "$LUNCH_EXIT" -ne 0 ]; then echo "LUNCH FAILED, skipping build"; exit 1; fi
+          if grep -q "does not exist" /tmp/lunch.log; then echo "LUNCH HAD ERRORS, skipping build"; exit 1; fi
+          mka adbd recoveryimage ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox-${{ github.event.inputs.DEVICE_NAME }}-boot
+          path: |
+            ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.img
+            ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/obj/PACKAGING/boot_intermediates/ramdisk.img
