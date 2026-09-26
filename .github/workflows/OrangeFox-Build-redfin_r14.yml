@@ -82,7 +82,7 @@ jobs:
           source build/envsetup.sh > /tmp/envsetup.log 2>&1
           echo "ENVSETUP_EXIT=$?"
           cat /tmp/envsetup.log
-          lunch fox_${{ github.event.inputs.DEVICE_NAME }}-eng > /tmp/lunch.log 2>&1
+          lunch fox_${{ github.event.inputs.DEVICE_NAME }}-ap2a-eng > /tmp/lunch.log 2>&1
           echo "LUNCH_EXIT=$?"
           grep -E "error:|Don't have a product spec|TARGET_DEVICE" /tmp/lunch.log | head -n 20
           tail -n 5 /tmp/lunch.log
