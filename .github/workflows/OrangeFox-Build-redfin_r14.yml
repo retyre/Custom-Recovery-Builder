@@ -71,6 +71,14 @@ jobs:
           cat ${{ github.event.inputs.DEVICE_PATH }}/AndroidProducts.mk
           ls vendor/fox/config/common.mk && echo FOX_VENDOR_OK || echo FOX_VENDOR_MISSING
 
+      - name: Add swap (14.1 soong graph load OOMs small runners)
+        run: |
+          sudo fallocate -l 12G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1G count=12
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Build
         run: |
           cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
@@ -88,7 +96,7 @@ jobs:
           tail -n 5 /tmp/lunch.log
           if [ "$LUNCH_EXIT" -ne 0 ]; then echo "LUNCH FAILED, skipping build"; exit 1; fi
           if grep -q "does not exist" /tmp/lunch.log; then echo "LUNCH HAD ERRORS, skipping build"; exit 1; fi
-          mka adbd recoveryimage ${{ github.event.inputs.BUILD_TARGET }}image -j2
+          mka adbd recoveryimage ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
 
       - name: Upload
         if: always()
