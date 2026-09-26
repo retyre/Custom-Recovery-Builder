@@ -88,7 +88,7 @@ jobs:
           tail -n 5 /tmp/lunch.log
           if [ "$LUNCH_EXIT" -ne 0 ]; then echo "LUNCH FAILED, skipping build"; exit 1; fi
           if grep -q "does not exist" /tmp/lunch.log; then echo "LUNCH HAD ERRORS, skipping build"; exit 1; fi
-          mka adbd ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+          mka adbd recoveryimage ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
 
       - name: Upload
         if: always()
