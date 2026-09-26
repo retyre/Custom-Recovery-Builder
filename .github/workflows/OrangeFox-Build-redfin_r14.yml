@@ -69,14 +69,18 @@ jobs:
           cd ~/fox_${{ github.event.inputs.MANIFEST_BRANCH }}
           ls ${{ github.event.inputs.DEVICE_PATH }}/
           cat ${{ github.event.inputs.DEVICE_PATH }}/AndroidProducts.mk
-          ls vendor/fox/config/common.mk && echo FOX_VENDOR_OK || echo FOX_VENDOR_MISSING
+          ls vendor/recovery/OrangeFox_vendor.sh && echo FOX_VENDOR_OK || echo FOX_VENDOR_MISSING
 
       - name: Add swap (14.1 soong graph load OOMs small runners)
         run: |
-          sudo fallocate -l 12G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1G count=12
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          if [ "$(free -g | awk '/Swap:/ {print $2}')" -lt 8 ]; then
+            sudo swapoff /swapfile 2>/dev/null || true
+            sudo rm -f /swapfile
+            sudo fallocate -l 12G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
           free -h
 
       - name: Build
