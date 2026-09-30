@@ -85,7 +85,9 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
-
+        
+    - name: Clean-up
+      uses: rokibhasansagar/slimhub_actions@main
       
     - name: Set-up Manifest # For github workspace use single {}
       run: |
