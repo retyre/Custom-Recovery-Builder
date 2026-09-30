@@ -119,7 +119,7 @@ jobs:
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         set -e
-        if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch twrp_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch twrp_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
+        if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch fox_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch fox_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
         popd
 
     - name: Set Build Date # Build date in UTC
