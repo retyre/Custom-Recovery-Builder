@@ -116,13 +116,14 @@ jobs:
         export CCACHE_EXEC=/usr/bin/ccache
         java -version
         sed -i 's/return sandboxConfig\.working/return false/g' build/soong/ui/build/sandbox_linux.go
-        source build/envsetup.sh
-        export ALLOW_MISSING_DEPENDENCIES=true
         
         # --- FIX: Empty out cts.mk so it stops enforcing compliance checks ---
         rm -f build/make/core/tasks/cts.mk
         touch build/make/core/tasks/cts.mk
         # -----------------------------------------------------------
+        
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
         
         set -e
         if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch fox_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch fox_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
