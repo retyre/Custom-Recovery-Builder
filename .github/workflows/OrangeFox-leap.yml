@@ -1,4 +1,4 @@
-name: OrangeFox [OFRP]
+name: OrangeFox-leap
 
 on:
   workflow_dispatch:
