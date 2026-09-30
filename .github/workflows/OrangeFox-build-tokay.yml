@@ -1,4 +1,4 @@
-name: OrangeFox - Build redfin_r14
+name: OrangeFox - Build tokay
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
       DEVICE_TREE_URL:
         description: 'Device tree repo URL'
         required: true
-        default: 'https://github.com/leegarchat/twrp_device_google_pixels/tree'
+        default: 'https://github.com/leegarchat/twrp_device_google_pixels'
       DEVICE_TREE_BRANCH:
         description: 'Device tree branch'
         required: true
@@ -18,7 +18,7 @@ on:
       DEVICE_PATH:
         description: 'Device path'
         required: true
-        default: 'device/tokay'
+        default: 'device/google/tokay'
       DEVICE_NAME:
         description: 'Device codename'
         required: true
