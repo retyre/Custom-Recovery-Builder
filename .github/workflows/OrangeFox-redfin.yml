@@ -62,7 +62,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
-
+        
+    - name: Clean-up
+      uses: rokibhasansagar/slimhub_actions@main
+      
     - name: Swap Space
       uses: pierotofy/set-swap-space@master
       with:
@@ -85,9 +88,6 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
-        
-    - name: Clean-up
-      uses: rokibhasansagar/slimhub_actions@main
       
     - name: Set-up Manifest # For github workspace use single {}
       run: |
