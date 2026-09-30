@@ -107,7 +107,7 @@ jobs:
         cd ${{ inputs.DEVICE_PATH }}
         echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-    - name: Building OrangeFox
+- name: Building OrangeFox
       run: |
         pushd ${{ env.ORANGEFOX_ROOT }}
         export JAVA_HOME=${{ env.JAVA_HOME_17_X64 }}
@@ -118,6 +118,11 @@ jobs:
         sed -i 's/return sandboxConfig\.working/return false/g' build/soong/ui/build/sandbox_linux.go
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
+        
+        # --- FIX: Add missing version for CTS compatibility check ---
+        echo "14.0.0" >> cts/tests/tests/os/assets/platform_releases.txt
+        # -----------------------------------------------------------
+        
         set -e
         if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch fox_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch fox_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
         popd
