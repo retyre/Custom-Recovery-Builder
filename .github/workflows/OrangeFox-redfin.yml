@@ -117,18 +117,19 @@ jobs:
         java -version
         sed -i 's/return sandboxConfig\.working/return false/g' build/soong/ui/build/sandbox_linux.go
         
-        # --- FIX: Add missing version for CTS compatibility check ---
+        # --- FIX: Satisfy CTS check ---
         echo "14.0.0" >> cts/tests/tests/os/assets/platform_releases.txt
-        # -----------------------------------------------------------
-        
+        # -------------------------------
+
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-
-        # --- FIX: Bypass strict prototype errors in legacy C code ---
-        export CFLAGS="${CFLAGS} -Wno-error=deprecated-non-prototype"
-        export CPPFLAGS="${CPPFLAGS} -Wno-error=deprecated-non-prototype"
-        # -------------------------------------------------------------
         
+        # --- FIX: Patch libopenaes Android.bp to ignore prototype errors ---
+        if [ -f "bootable/recovery/openaes/Android.bp" ]; then
+            sed -i '/cflags: \[/a \ \ \ \ \ \ "--no-error=deprecated-non-prototype",' bootable/recovery/openaes/Android.bp
+        fi
+        # -----------------------------------------------------------------
+
         set -e
         if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch fox_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch fox_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
         popd
