@@ -1,4 +1,4 @@
-name: OrangeFox [OFRP]
+name: OrangeFox-redfin
 
 on:
   workflow_dispatch:
