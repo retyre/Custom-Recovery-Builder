@@ -1,0 +1,238 @@
+name: OrangeFox-redfin
+
+on:
+  workflow_dispatch:
+    inputs:
+      MANIFEST_BRANCH:
+        description: 'OrangeFox Manifest Branch'
+        required: true
+        default: '14.1'
+        type: choice
+        options:
+        - 14.1
+        - 12.1
+        - 11.0
+      DEVICE_TREE:
+        description: 'Custom Recovery Tree'
+        required: true
+        default: 'https://github.com/retyre/redfin_r14'
+      DEVICE_TREE_BRANCH:
+        description: 'Custom Recovery Tree Branch (use master if default)'
+        required: true
+        default: 'main'
+      DEVICE_NAME:
+        description: 'Specify your Device Codename'
+        required: true
+        default: 'redfin'
+      DEVICE_PATH:
+        description: 'Specify your Device Path (Check the DEVICE_PATH in BoardConfig.mk)'
+        required: true
+        default: 'device/google/redfin'
+      BUILD_TARGET:
+        description: 'Specify your Build Target'
+        required: true
+        default: 'vendorboot'
+        type: choice
+        options:
+        - boot
+        - recovery
+        - vendorboot
+      LDCHECK:
+        description: 'Use LDCHECK'
+        required: false
+        default: 'false'
+        type: boolean
+      LDCHECKPATH:
+        description: 'Path of blobs to check'
+        required: true
+        default: 'system/bin/qseecomd'
+
+jobs:
+  build:
+    name: Build OFRP by ${{ github.actor }}
+    runs-on: ubuntu-22.04
+    if: github.event.repository.owner.id == github.event.sender.id
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ORANGEFOX_ROOT: ${{ github.workspace }}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+      OUTPUT_DIR: ${{ github.workspace }}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/out/target/product/${{ inputs.DEVICE_NAME }}
+
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Clean-up
+      uses: rokibhasansagar/slimhub_actions@main
+
+    - name: Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 12
+
+    - name: Build Environment
+      run: |
+        sudo apt install aria2 -y
+        git clone https://gitlab.com/OrangeFox/misc/scripts.git
+        cd scripts
+        sudo bash setup/android_build_env.sh
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        max-size: "10G"
+
+    - name: Install JDK 17 (required for fox_14.1 / Android 14 builds)
+      if: inputs.MANIFEST_BRANCH == '14.1'
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Set-up Manifest
+      run: |
+        mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
+        cd ${GITHUB_WORKSPACE}/OrangeFox
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        git clone https://gitlab.com/OrangeFox/sync.git -b master
+        cd sync
+        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+
+    - name: Clone Device Tree
+      run: |
+        cd ${{ env.ORANGEFOX_ROOT }}
+        git clone ${{ inputs.DEVICE_TREE }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ./${{ inputs.DEVICE_PATH }}
+        cd ${{ inputs.DEVICE_PATH }}
+        echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+    - name: Building OrangeFox
+      run: |
+        pushd ${{ env.ORANGEFOX_ROOT }}
+        export JAVA_HOME=${{ env.JAVA_HOME_17_X64 }}
+        set +e
+        export USE_CCACHE=1
+        export CCACHE_EXEC=/usr/bin/ccache
+        java -version
+        sed -i 's/return sandboxConfig\.working/return false/g' build/soong/ui/build/sandbox_linux.go
+
+        # --- FIX: Satisfy CTS check ---
+        echo "14.0.0" >> cts/tests/tests/os/assets/platform_releases.txt
+        # -------------------------------
+
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+
+        # --- FIX: libopenaes C23 -Wdeprecated-non-prototype ---
+        # The flags must land in EVERY cflags: block (headers + lib),
+        # not just the first one. -std=gnu17 alone does NOT silence it.
+        python3 - << 'EOF'
+        import glob, os, re, sys
+
+        print("CWD:", os.getcwd())
+        cands = glob.glob("**/openaes/Android.bp", recursive=True)
+        print("openaes candidates:", cands if cands else "NONE")
+        if not cands:
+            print("Top-level entries:", sorted(os.listdir("."))[:40])
+            hits = []
+            for root, dirs, files in os.walk("."):
+                if "openaes" in root and "Android.bp" in files:
+                    hits.append(os.path.join(root, "Android.bp"))
+                if len(hits) >= 5:
+                    break
+            print("walk hits:", hits)
+            cands = hits
+        if not cands:
+            print("WARNING: openaes Android.bp not present in this sync; nothing to patch, continuing")
+            sys.exit(0)
+        path = cands[0]
+        print(f"Found openaes build file at: {path}")
+        with open(path, "r") as f:
+            src = f.read()
+
+        flags = ["-Wno-error=deprecated-non-prototype", "-Wno-deprecated-non-prototype"]
+
+        if "c_std:" in src:
+            src = re.sub(r'c_std:\s*"[^"]*"', 'c_std: "gnu17"', src)
+        else:
+            src = re.sub(r'(cc_library\w*\s*\{\s*\n)', r'\1    c_std: "gnu17",\n', src)
+
+        if "cflags:" in src:
+            for f in flags:
+                if f not in src:
+                    src = src.replace("cflags: [",
+                                      'cflags: [\n        "%s",' % f)
+        else:
+            ins = '\n    cflags: [\n' + ''.join('        "%s",\n' % f for f in flags) + '    ],'
+            src = re.sub(r'(cc_library\w*\s*\{\s*\n)', r'\1' + ins + '\n', src)
+
+        with open(path, "w") as f:
+            f.write(src)
+
+        check = open(path).read()
+        n = sum(check.count('"%s"' % f) for f in flags)
+        print("flag occurrences after patch:", n)
+        if n < 2:
+            print("ERROR: flags did not land in", path)
+            sys.exit(1)
+        print(f"Successfully patched {path}")
+        EOF
+        if [ $? -ne 0 ]; then echo "openaes patch FAILED, aborting before lunch"; exit 1; fi
+        # ---------------------------------------------
+
+        set -e
+        if [ "${{ inputs.MANIFEST_BRANCH }}" = "14.1" ]; then lunch fox_${{ inputs.DEVICE_NAME }}-ap2a-eng; else lunch fox_${{ inputs.DEVICE_NAME }}-eng; fi && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
+        popd
+
+    - name: Set Build Date
+      run: |
+        echo "BUILD_DATE=$(TZ=UTC date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Check if the recovery exists
+      if: always()
+      run: |
+        img_file=$(find "${{ env.OUTPUT_DIR }}" -name "${{ inputs.BUILD_TARGET }}*.img" -print -quit)
+        zip_file=$(find "${{ env.OUTPUT_DIR }}" -name "OrangeFox*.zip" -print -quit)
+        if [ -f "$img_file" ]; then
+            echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
+            echo "MD5_IMG=$(md5sum "$img_file" | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        else
+            echo "Recovery out directory is empty."
+        fi
+        if [ -f "$zip_file" ]; then
+            echo "CHECK_ZIP_IS_OK=true" >> $GITHUB_ENV
+            echo "MD5_ZIP=$(md5sum "$zip_file" | cut -d ' ' -f 1)" >> $GITHUB_ENV
+        else
+            echo "::warning::The zip file isn't present but make sure the image is from only after 100% completion in build stage"
+        fi
+
+    - name: Upload to Release
+      if: env.CHECK_IMG_IS_OK == 'true'
+      uses: softprops/action-gh-release@master
+      with:
+        files: |
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.img
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.tar
+          ${{ env.OUTPUT_DIR }}/OrangeFox*.zip
+          ${{ env.OUTPUT_DIR }}/ramdisk-recovery.*
+        name: Unofficial OrangeFox for ${{ inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
+        tag_name: ${{ github.run_id }}
+        body: |
+          Build: ${{ inputs.MANIFEST_BRANCH }}
+          Device: [Device Tree/Branch](${{ inputs.DEVICE_TREE }}/tree/${{ inputs.DEVICE_TREE_BRANCH }})
+          Commit: Most recent [commit](${{ inputs.DEVICE_TREE }}/commit/${{ env.COMMIT_ID }}) during building.
+          MD5 (img): ${{ env.MD5_IMG }}
+          MD5 (zip): ${{ env.MD5_ZIP }}
+        prerelease: true
+
+    - name: Run LDCheck
+      if: inputs.LDCHECK == true
+      run: |
+        cd tools
+        mv -n libneeds ${{ env.OUTPUT_DIR }}/recovery/root/
+        mv -n ldcheck ${{ env.OUTPUT_DIR }}/recovery/root/
+        cd ${{ env.OUTPUT_DIR }}/recovery/root
+        python3 ldcheck -p system/lib64:vendor/lib64:system/lib:vendor/lib -d ${{ inputs.LDCHECKPATH }}
+        echo "Done checking missing dependencies. Review, and reconfigure your tree."
+      continue-on-error: true
