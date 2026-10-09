@@ -26,13 +26,13 @@ jobs:
           cd ghostlock-coffey
           export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
           make -j$(nproc)
-          file coffey
-          ls -lh coffey
+          file ghostlock
+          ls -lh ghostlock
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ghostlock-coffey
-          path: ghostlock-coffey/coffey
+          path: ghostlock-coffey/ghostlock
           retention-days: 30
 
