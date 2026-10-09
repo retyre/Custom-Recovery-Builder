@@ -1,0 +1,38 @@
+name: Build GhostLock Coffey
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone ghostlock-coffey
+        run: git clone --depth=1 https://github.com/chaitan3/ghostlock-coffey.git ghostlock-coffey
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Build binary
+        run: |
+          cd ghostlock-coffey
+          export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+          make -j$(nproc)
+          file coffey
+          ls -lh coffey
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghostlock-coffey
+          path: ghostlock-coffey/coffey
+          retention-days: 30
+
